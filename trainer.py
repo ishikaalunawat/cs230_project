@@ -1,31 +1,30 @@
-import matplotlib.pyplot as plt
 import torch
-from sklearn.metrics import confusion_matrix
-import seaborn as sns
+import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.metrics import average_precision_score, roc_curve, auc, multilabel_confusion_matrix
+import matplotlib.patches as patches
 
 class Trainer:
-    def __init__(self, model, device, criterion, optimizer):
+    def __init__(self, model, device, criterion, optimizer, num_classes=7, class_names=None):
         self.model = model
         self.device = device
         self.criterion = criterion
         self.optimizer = optimizer
+        self.num_classes = num_classes
+        self.class_names = class_names if class_names is not None else [f'Class {i}' for i in range(num_classes)]
         # Initialize lists to store metrics
         self.train_losses = []
-        self.train_accuracies = []
         self.val_losses = []
-        self.val_accuracies = []
     
     def train(self, train_loader, valid_loader, num_epochs=10):
         for epoch in range(num_epochs):
             # Training phase
             self.model.train()
             running_loss = 0.0
-            correct = 0
-            total = 0
-            for inputs, labels in train_loader:
+            total_samples = 0
+            for inputs, labels, _ in train_loader:
                 inputs = inputs.to(self.device)
-                labels = labels.to(self.device)
+                labels = labels.to(self.device).float()
     
                 self.optimizer.zero_grad()
     
@@ -36,50 +35,65 @@ class Trainer:
                 self.optimizer.step()
     
                 running_loss += loss.item() * inputs.size(0)
+                total_samples += inputs.size(0)
     
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-    
-            epoch_loss = running_loss / len(train_loader.dataset)
-            epoch_acc = 100 * correct / total
+            epoch_loss = running_loss / total_samples
             self.train_losses.append(epoch_loss)
-            self.train_accuracies.append(epoch_acc)
-            print(f'Epoch {epoch+1}/{num_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.2f}%')
+            print(f'Epoch {epoch+1}/{num_epochs}, Training Loss: {epoch_loss:.4f}')
     
             # Validation phase
-            val_loss, val_acc = self.evaluate(valid_loader)
+            val_loss = self.evaluate_loss(valid_loader)
             self.val_losses.append(val_loss)
-            self.val_accuracies.append(val_acc)
-            print(f'Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_acc:.2f}%')
+            print(f'Validation Loss: {val_loss:.4f}')
     
-    def evaluate(self, data_loader):
+    def evaluate_loss(self, data_loader):
         self.model.eval()
-        val_loss = 0.0
-        correct = 0
-        total = 0
+        running_loss = 0.0
+        total_samples = 0
         with torch.no_grad():
-            for inputs, labels in data_loader:
+            for inputs, labels, _ in data_loader:
                 inputs = inputs.to(self.device)
-                labels = labels.to(self.device)
+                labels = labels.to(self.device).float()
     
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, labels)
     
-                val_loss += loss.item() * inputs.size(0)
+                running_loss += loss.item() * inputs.size(0)
+                total_samples += inputs.size(0)
     
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+        avg_loss = running_loss / total_samples
+        return avg_loss
     
-        avg_loss = val_loss / len(data_loader.dataset)
-        avg_acc = 100 * correct / total
-        return avg_loss, avg_acc
+    def evaluate_metrics(self, data_loader):
+        self.model.eval()
+        all_targets = []
+        all_outputs = []
+        with torch.no_grad():
+            for inputs, labels, _ in data_loader:
+                inputs = inputs.to(self.device)
+                labels = labels.to(self.device).float()
     
-    def test(self, test_loader):
-        test_loss, test_acc = self.evaluate(test_loader)
-        print(f'Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.2f}%')
-        return test_loss, test_acc
+                outputs = self.model(inputs)
+                outputs = torch.sigmoid(outputs)
+    
+                all_targets.append(labels.cpu().numpy())
+                all_outputs.append(outputs.cpu().numpy())
+    
+        all_targets = np.vstack(all_targets)
+        all_outputs = np.vstack(all_outputs)
+    
+        # Compute Average Precision (AP) for each class
+        average_precisions = []
+        for i in range(self.num_classes):
+            ap = average_precision_score(all_targets[:, i], all_outputs[:, i])
+            average_precisions.append(ap)
+            print(f'Class {self.class_names[i]} AP: {ap:.4f}')
+    
+        # Compute mean Average Precision (mAP)
+        mAP = np.mean(average_precisions)
+        print(f'mAP: {mAP:.4f}')
+    
+        return all_targets, all_outputs, average_precisions, mAP
     
     def plot_metrics(self):
         # Plot Loss
@@ -92,73 +106,78 @@ class Trainer:
         plt.legend()
         plt.show()
     
-        # Plot Accuracy
-        plt.figure(figsize=(10,5))
-        plt.title("Training and Validation Accuracy")
-        plt.plot(self.train_accuracies,label="Train Accuracy")
-        plt.plot(self.val_accuracies,label="Validation Accuracy")
-        plt.xlabel("Epochs")
-        plt.ylabel("Accuracy (%)")
-        plt.legend()
-        plt.show()
-
-    def predict(self, data_loader):
-        self.model.eval()
-        all_preds = []
-        all_labels = []
-        with torch.no_grad():
-            for inputs, labels in data_loader:
-                inputs = inputs.to(self.device)
-                labels = labels.to(self.device)
-                outputs = self.model(inputs)
-                _, preds = torch.max(outputs, 1)
-                all_preds.extend(preds.cpu().numpy())
-                all_labels.extend(labels.cpu().numpy())
-        return all_preds, all_labels
+    def plot_roc_curves(self, targets, outputs):
+        plt.figure(figsize=(10, 8))
+        for i in range(self.num_classes):
+            fpr, tpr, _ = roc_curve(targets[:, i], outputs[:, i])
+            roc_auc = auc(fpr, tpr)
+            plt.plot(fpr, tpr, label=f'{self.class_names[i]} (AUC = {roc_auc:.2f})')
     
-
-
-    def plot_confusion_matrix(self, data_loader, class_names):
-        all_preds, all_labels = self.predict(data_loader)
-        cm = confusion_matrix(all_labels, all_preds)
-        cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-
-        plt.figure(figsize=(8,6))
-        sns.heatmap(cm_normalized, annot=True, fmt='.2f', xticklabels=class_names,
-                    yticklabels=class_names, cmap='Blues')
-        plt.ylabel('True Label')
-        plt.xlabel('Predicted Label')
-        plt.title('Normalized Confusion Matrix')
+        plt.plot([0, 1], [0, 1], 'k--')
+        plt.title('Receiver Operating Characteristic (ROC) Curves')
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.legend(loc='lower right')
         plt.show()
-
-
-    def visualize_predictions(self, data_loader, class_names, num_images=8):
+    
+    def plot_confusion_matrices(self, targets, outputs, threshold=0.5):
+        preds = (outputs >= threshold).astype(int)
+        confusion_matrices = multilabel_confusion_matrix(targets, preds)
+    
+        for i in range(self.num_classes):
+            cm = confusion_matrices[i]
+            print(f'Confusion matrix for class {self.class_names[i]}:')
+            print(cm)
+            print()
+    
+    def visualize_predictions(self, data_loader, num_images=8, threshold=0.5):
+        import numpy as np
         self.model.eval()
-        inputs, labels = next(iter(data_loader))
+        inputs, labels, bboxes_list = next(iter(data_loader))
         inputs = inputs.to(self.device)
-        labels = labels.to(self.device)
-        outputs = self.model(inputs)
-        _, preds = torch.max(outputs, 1)
-
+        labels = labels.to(self.device).float()
+        with torch.no_grad():
+            outputs = self.model(inputs)
+            outputs = torch.sigmoid(outputs)
         inputs = inputs.cpu()
-        preds = preds.cpu()
         labels = labels.cpu()
-
-        def imshow(inp, title=None):
+        outputs = outputs.cpu()
+    
+        preds = (outputs >= threshold).int()
+    
+        # Denormalize images
+        def denormalize(inp):
             inp = inp.numpy().transpose((1, 2, 0))
-            mean = [0.485, 0.456, 0.406]
+            mean = np.array([0.485, 0.456, 0.406])
             std =[0.229, 0.224, 0.225]
             inp = std * inp + mean
             inp = np.clip(inp, 0, 1)
-            plt.imshow(inp)
-            if title is not None:
-                plt.title(title)
-            plt.axis('off')
-
+            return inp
+    
         fig = plt.figure(figsize=(15, 10))
-        for idx in np.arange(num_images):
+        for idx in range(num_images):
             ax = fig.add_subplot(2, num_images//2, idx+1)
-            imshow(inputs[idx])
-            ax.set_title(f"Pred: {class_names[preds[idx]]}\nTrue: {class_names[labels[idx]]}",
-                        color=("green" if preds[idx]==labels[idx] else "red"))
+            image = denormalize(inputs[idx])
+            ax.imshow(image)
+            true_classes = [self.class_names[i] for i in range(self.num_classes) if labels[idx][i] == 1]
+            pred_classes = [self.class_names[i] for i in range(self.num_classes) if preds[idx][i] == 1]
+            title = f"True: {', '.join(true_classes)}\nPred: {', '.join(pred_classes)}"
+            ax.set_title(title)
+            ax.axis('off')
+    
+            # Get bounding boxes for this image
+            bboxes = bboxes_list[idx]
+    
+            # Draw bounding boxes
+            for bbox in bboxes:
+                xmin, ymin, xmax, ymax, class_id = bbox
+                width = xmax - xmin
+                height = ymax - ymin
+                rect = patches.Rectangle((xmin, ymin), width, height, linewidth=2,
+                                         edgecolor='red', facecolor='none')
+                ax.add_patch(rect)
+                # Add class label
+                ax.text(xmin, ymin - 5, self.class_names[class_id], color='red', fontsize=12,
+                        backgroundcolor='white')
+        plt.tight_layout()
         plt.show()
