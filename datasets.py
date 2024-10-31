@@ -1,11 +1,7 @@
 import os
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, models
+from torch.utils.data import Dataset
+from torchvision import transforms
 from PIL import Image
-import matplotlib.pyplot as plt
-import torch.nn.functional as F
 
 # Custom Dataset class for Underwater Creatures
 class UnderwaterCreaturesDataset(Dataset):
