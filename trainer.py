@@ -1,8 +1,13 @@
+# trainer.py
+
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import average_precision_score, roc_curve, auc, multilabel_confusion_matrix
 import matplotlib.patches as patches
+from collections import Counter
+import seaborn as sns
+
 
 class Trainer:
     def __init__(self, model, device, criterion, optimizer, num_classes=7, class_names=None):
@@ -106,29 +111,77 @@ class Trainer:
         plt.legend()
         plt.show()
     
-    def plot_roc_curves(self, targets, outputs):
-        plt.figure(figsize=(10, 8))
-        for i in range(self.num_classes):
-            fpr, tpr, _ = roc_curve(targets[:, i], outputs[:, i])
-            roc_auc = auc(fpr, tpr)
-            plt.plot(fpr, tpr, label=f'{self.class_names[i]} (AUC = {roc_auc:.2f})')
+    # def plot_roc_curves(self, targets, outputs):
+    #     plt.figure(figsize=(10, 8))
+    #     for i in range(self.num_classes):
+    #         fpr, tpr, _ = roc_curve(targets[:, i], outputs[:, i])
+    #         roc_auc = auc(fpr, tpr)
+    #         plt.plot(fpr, tpr, label=f'{self.class_names[i]} (AUC = {roc_auc:.2f})')
     
-        plt.plot([0, 1], [0, 1], 'k--')
-        plt.title('Receiver Operating Characteristic (ROC) Curves')
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.legend(loc='lower right')
-        plt.show()
+    #     plt.plot([0, 1], [0, 1], 'k--')
+    #     plt.title('Receiver Operating Characteristic (ROC) Curves')
+    #     plt.xlabel('False Positive Rate')
+    #     plt.ylabel('True Positive Rate')
+    #     plt.legend(loc='lower right')
+    #     plt.show()
     
-    def plot_confusion_matrices(self, targets, outputs, threshold=0.5):
+    def compute_pairwise_confusion_matrix(self, targets, outputs, threshold=0.5, normalize=True):
+        """
+        Computes a pairwise confusion matrix for multi-label classification.
+
+        Args:
+            targets (np.ndarray): Ground truth binary labels (num_samples x num_classes).
+            outputs (np.ndarray): Predicted probabilities (num_samples x num_classes).
+            threshold (float): Threshold to convert probabilities to binary predictions.
+            normalize (bool): Whether to normalize the confusion matrix row-wise.
+
+        Returns:
+            np.ndarray: Pairwise confusion matrix (num_classes x num_classes).
+        """
+        num_classes = self.num_classes
+        confusion_matrix = np.zeros((num_classes, num_classes), dtype=int)
+
+        # Binarize predictions based on the threshold
         preds = (outputs >= threshold).astype(int)
-        confusion_matrices = multilabel_confusion_matrix(targets, preds)
+
+        for i in range(num_classes):
+            for j in range(num_classes):
+                # Count instances where class i is true and class j is predicted
+                count = np.sum((targets[:, i] == 1) & (preds[:, j] == 1))
+                confusion_matrix[i, j] = count
+
+        if normalize:
+            # Avoid division by zero by setting zero rows to ones (to keep them zero after normalization)
+            row_sums = confusion_matrix.sum(axis=1, keepdims=True)
+            row_sums[row_sums == 0] = 1
+            normalized_confusion = confusion_matrix / row_sums
+            return normalized_confusion
+        else:
+            return confusion_matrix
+
     
-        for i in range(self.num_classes):
-            cm = confusion_matrices[i]
-            print(f'Confusion matrix for class {self.class_names[i]}:')
-            print(cm)
-            print()
+    # trainer.py
+
+    def plot_pairwise_confusion_matrix(self, confusion_matrix, class_names, epoch, threshold=0.5):
+        """
+        Plots the pairwise confusion matrix.
+
+        Args:
+            confusion_matrix (np.ndarray): Pairwise confusion matrix.
+            class_names (list): List of class names.
+            epoch (int): Current epoch number.
+            threshold (float): Threshold used for predictions.
+        """
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(confusion_matrix.T, annot=True, fmt=".2f", cmap='Blues',
+                    xticklabels=class_names, yticklabels=class_names)
+        plt.xlabel('True')
+        plt.ylabel('Predicted')
+        plt.title(f'Confusion Matrix Normalized')
+        plt.tight_layout()
+        plt.show()
+
+
     
     def visualize_predictions(self, data_loader, num_images=8, threshold=0.5):
         import numpy as np

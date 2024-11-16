@@ -192,3 +192,78 @@ class YOLODataset(Dataset):
         class_labels = transformed['class_labels']
 
         return image, labels, bbox_list
+    
+
+class AquariumDataset(Dataset):
+    def __init__(self, root_dir, split='train', transform=None):
+        """
+        Args:
+            root_dir (str): Path to the dataset root (aquarium_pretrain)
+            split (str): 'train', 'valid', or 'test'
+            transform (callable, optional): Optional transform to be applied on images
+        """
+        self.root_dir = root_dir
+        self.split = split
+        self.transform = transform or transforms.Compose([
+            transforms.Resize((224, 224)),  # Resize to match CNN input
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                              std=[0.229, 0.224, 0.225])
+        ])
+        
+        self.classes = ['fish', 'jellyfish', 'penguin', 'puffin', 
+                       'shark', 'starfish', 'stingray']
+        
+        # Setup paths
+        self.img_dir = os.path.join(root_dir, split, 'images')
+        self.label_dir = os.path.join(root_dir, split, 'labels')
+        
+        # Get all image files
+        self.img_files = [f for f in os.listdir(self.img_dir) 
+                         if f.endswith(('.jpg', '.jpeg', '.png'))]
+        
+    def __len__(self):
+        return len(self.img_files)
+    
+    def __getitem__(self, idx):
+        # Get image path
+        img_name = self.img_files[idx]
+        img_path = os.path.join(self.img_dir, img_name)
+        
+        # Load image
+        image = Image.open(img_path).convert('RGB')
+        orig_width, orig_height = image.size
+        
+        # Apply transforms
+        if self.transform:
+            image = self.transform(image)
+            
+        # Get corresponding label file
+        label_name = os.path.splitext(img_name)[0] + '.txt'
+        label_path = os.path.join(self.label_dir, label_name)
+        
+        # Initialize target tensor (multi-label format)
+        target = torch.zeros(len(self.classes))
+        
+        # Read YOLO format labels
+        boxes = []
+        if os.path.exists(label_path):
+            with open(label_path, 'r') as f:
+                for line in f:
+                    data = line.strip().split()
+                    class_idx = int(data[0])
+                    # Set class presence to 1 (multi-label)
+                    target[class_idx] = 1
+                    
+                    # If you need bounding box coordinates
+                    x_center, y_center, width, height = map(float, data[1:])
+                    boxes.append([class_idx, x_center, y_center, width, height])
+        
+        boxes = torch.tensor(boxes) if boxes else torch.zeros((0, 5))
+        
+        return {
+            'image': image,
+            'target': target,  # Multi-label target
+            'boxes': boxes,    # Bounding boxes in YOLO format
+            'image_id': img_name
+        }
