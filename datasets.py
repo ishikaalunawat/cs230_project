@@ -24,25 +24,6 @@ def collate_fn(batch):
     # bboxes is a list of lists (variable lengths), so we keep it as is
     return images, labels, bboxes
 
-def get_train_transform():
-    # transformations for training and validation/testing
-    train_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                            std =[0.229, 0.224, 0.225])
-    ])
-    return train_transform
-
-def get_test_transform():
-    test_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std =[0.229, 0.224, 0.225])
-    ])
-    return test_transform
 
 class UnderwaterCreaturesMultiLabelDataset(Dataset):
     def __init__(self, root_dir, split='train', num_classes=7):
@@ -126,143 +107,68 @@ class UnderwaterCreaturesMultiLabelDataset(Dataset):
 
         return image, labels, bbox_list_converted
 
-class YOLODataset(Dataset):
-    def __init__(self, root_dir, split='train', num_classes=7):
-        self.root_dir = root_dir
-        self.split = split
-        self.num_classes = num_classes
+# class YOLODataset(Dataset):
+#     def __init__(self, root_dir, split='train', num_classes=7):
+#         self.root_dir = root_dir
+#         self.split = split
+#         self.num_classes = num_classes
 
-        self.images_dir = os.path.join(root_dir, split, 'images')
-        self.labels_dir = os.path.join(root_dir, split, 'labels')
+#         self.images_dir = os.path.join(root_dir, split, 'images')
+#         self.labels_dir = os.path.join(root_dir, split, 'labels')
 
-        self.image_files = glob.glob(os.path.join(self.images_dir, '*.jpg')) 
-        self.samples = []
+#         self.image_files = glob.glob(os.path.join(self.images_dir, '*.jpg')) 
+#         self.samples = []
 
-        for image_file in self.image_files:
-            image_path = image_file
-            label_file = os.path.splitext(os.path.basename(image_file))[0] + '.txt'
-            label_path = os.path.join(self.labels_dir, label_file)
-            labels = torch.zeros(self.num_classes)
-            bboxes = []
-            if os.path.exists(label_path):
-                with open(label_path, 'r') as f:
-                    for line in f:
-                        parts = line.strip().split()
-                        if len(parts) == 5:
-                            class_id, x_center, y_center, width, height = map(float, parts)
-                            labels[int(class_id)] = 1  # Set presence of class
-                            bboxes.append([x_center, y_center, width, height, int(class_id)])
-            self.samples.append((image_path, labels, bboxes))
+#         for image_file in self.image_files:
+#             image_path = image_file
+#             label_file = os.path.splitext(os.path.basename(image_file))[0] + '.txt'
+#             label_path = os.path.join(self.labels_dir, label_file)
+#             labels = torch.zeros(self.num_classes)
+#             bboxes = []
+#             if os.path.exists(label_path):
+#                 with open(label_path, 'r') as f:
+#                     for line in f:
+#                         parts = line.strip().split()
+#                         if len(parts) == 5:
+#                             class_id, x_center, y_center, width, height = map(float, parts)
+#                             labels[int(class_id)] = 1  # Set presence of class
+#                             bboxes.append([x_center, y_center, width, height, int(class_id)])
+#             self.samples.append((image_path, labels, bboxes))
 
-        # Define transformations for YOLO dataset
-        if split == 'train':
-            self.transform = A.Compose([
-                A.Resize(224, 224),
-                A.HorizontalFlip(p=0.5),
-                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                ToTensorV2()
-            ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
-        else:
-            self.transform = A.Compose([
-                A.Resize(224, 224),
-                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                ToTensorV2()
-            ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+#         # Define transformations for YOLO dataset
+#         if split == 'train':
+#             self.transform = A.Compose([
+#                 A.Resize(224, 224),
+#                 A.HorizontalFlip(p=0.5),
+#                 A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+#                 ToTensorV2()
+#             ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+#         else:
+#             self.transform = A.Compose([
+#                 A.Resize(224, 224),
+#                 A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+#                 ToTensorV2()
+#             ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
 
-    def __len__(self):
-        return len(self.samples)
+#     def __len__(self):
+#         return len(self.samples)
 
-    def __getitem__(self, idx):
-        image_path, labels, bboxes = self.samples[idx]
-        image = np.array(Image.open(image_path).convert('RGB'))
+#     def __getitem__(self, idx):
+#         image_path, labels, bboxes = self.samples[idx]
+#         image = np.array(Image.open(image_path).convert('RGB'))
 
-        # Prepare bounding boxes and class labels
-        bbox_list = []
-        class_labels = []
-        for bbox in bboxes:
-            x_center, y_center, width, height, class_id = bbox
-            bbox_list.append([x_center, y_center, width, height])
-            class_labels.append(int(class_id))
+#         # Prepare bounding boxes and class labels
+#         bbox_list = []
+#         class_labels = []
+#         for bbox in bboxes:
+#             x_center, y_center, width, height, class_id = bbox
+#             bbox_list.append([x_center, y_center, width, height])
+#             class_labels.append(int(class_id))
 
-        # Apply transformations
-        transformed = self.transform(image=image, bboxes=bbox_list, class_labels=class_labels)
-        image = transformed['image']
-        bbox_list = transformed['bboxes']
-        class_labels = transformed['class_labels']
+#         # Apply transformations
+#         transformed = self.transform(image=image, bboxes=bbox_list, class_labels=class_labels)
+#         image = transformed['image']
+#         bbox_list = transformed['bboxes']
+#         class_labels = transformed['class_labels']
 
-        return image, labels, bbox_list
-    
-
-class AquariumDataset(Dataset):
-    def __init__(self, root_dir, split='train', transform=None):
-        """
-        Args:
-            root_dir (str): Path to the dataset root (aquarium_pretrain)
-            split (str): 'train', 'valid', or 'test'
-            transform (callable, optional): Optional transform to be applied on images
-        """
-        self.root_dir = root_dir
-        self.split = split
-        self.transform = transform or transforms.Compose([
-            transforms.Resize((224, 224)),  # Resize to match CNN input
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                              std=[0.229, 0.224, 0.225])
-        ])
-        
-        self.classes = ['fish', 'jellyfish', 'penguin', 'puffin', 
-                       'shark', 'starfish', 'stingray']
-        
-        # Setup paths
-        self.img_dir = os.path.join(root_dir, split, 'images')
-        self.label_dir = os.path.join(root_dir, split, 'labels')
-        
-        # Get all image files
-        self.img_files = [f for f in os.listdir(self.img_dir) 
-                         if f.endswith(('.jpg', '.jpeg', '.png'))]
-        
-    def __len__(self):
-        return len(self.img_files)
-    
-    def __getitem__(self, idx):
-        # Get image path
-        img_name = self.img_files[idx]
-        img_path = os.path.join(self.img_dir, img_name)
-        
-        # Load image
-        image = Image.open(img_path).convert('RGB')
-        orig_width, orig_height = image.size
-        
-        # Apply transforms
-        if self.transform:
-            image = self.transform(image)
-            
-        # Get corresponding label file
-        label_name = os.path.splitext(img_name)[0] + '.txt'
-        label_path = os.path.join(self.label_dir, label_name)
-        
-        # Initialize target tensor (multi-label format)
-        target = torch.zeros(len(self.classes))
-        
-        # Read YOLO format labels
-        boxes = []
-        if os.path.exists(label_path):
-            with open(label_path, 'r') as f:
-                for line in f:
-                    data = line.strip().split()
-                    class_idx = int(data[0])
-                    # Set class presence to 1 (multi-label)
-                    target[class_idx] = 1
-                    
-                    # If you need bounding box coordinates
-                    x_center, y_center, width, height = map(float, data[1:])
-                    boxes.append([class_idx, x_center, y_center, width, height])
-        
-        boxes = torch.tensor(boxes) if boxes else torch.zeros((0, 5))
-        
-        return {
-            'image': image,
-            'target': target,  # Multi-label target
-            'boxes': boxes,    # Bounding boxes in YOLO format
-            'image_id': img_name
-        }
+#         return image, labels, bbox_list
