@@ -15,6 +15,7 @@ class Trainer:
         self.optimizer = optimizer
         self.num_classes = num_classes
         self.class_names = class_names if class_names is not None else [f'Class {i}' for i in range(num_classes)]
+        # to track & plot losses
         self.train_losses = []
         self.val_losses = []
     
@@ -110,18 +111,6 @@ class Trainer:
 
     
     def compute_confusion_matrix(self, targets, outputs, threshold=0.5, normalize=True):
-        """
-        Computes a pairwise confusion matrix for multi-label classification.
-
-        Args:
-            targets (np.ndarray): Ground truth binary labels (num_samples x num_classes).
-            outputs (np.ndarray): Predicted probabilities (num_samples x num_classes).
-            threshold (float): Threshold to convert probabilities to binary predictions.
-            normalize (bool): Whether to normalize the confusion matrix row-wise.
-
-        Returns:
-            np.ndarray: Pairwise confusion matrix (num_classes x num_classes).
-        """
         num_classes = self.num_classes
         confusion_matrix = np.zeros((num_classes, num_classes), dtype=int)
 
@@ -146,15 +135,6 @@ class Trainer:
     
 
     def plot_pairwise_confusion_matrix(self, confusion_matrix, class_names, epoch, threshold=0.5):
-        """
-        Plots the pairwise confusion matrix.
-
-        Args:
-            confusion_matrix (np.ndarray): Pairwise confusion matrix.
-            class_names (list): List of class names.
-            epoch (int): Current epoch number.
-            threshold (float): Threshold used for predictions.
-        """
         plt.figure(figsize=(10, 8))
         sns.heatmap(confusion_matrix.T, annot=True, fmt=".2f", cmap='Blues',
                     xticklabels=class_names, yticklabels=class_names)
