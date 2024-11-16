@@ -6,7 +6,6 @@ import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import numpy as np
-import glob
 
 def collate_fn(batch):
     images = []
