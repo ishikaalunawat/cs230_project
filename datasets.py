@@ -1,5 +1,5 @@
 import os
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, WeightedRandomSampler
 from torchvision import transforms
 from PIL import Image
 import torch
@@ -7,6 +7,8 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import numpy as np
 import glob
+from collections import Counter
+
 
 def collate_fn(batch):
     images = []
@@ -108,6 +110,7 @@ class UnderwaterCreaturesMultiLabelDataset(Dataset):
 
         return image, labels, bbox_list_converted
 
+
 class YOLODataset(Dataset):
     def __init__(self, root_dir, split='train', num_classes=7):
         self.root_dir = root_dir
@@ -119,6 +122,7 @@ class YOLODataset(Dataset):
 
         self.image_files = glob.glob(os.path.join(self.images_dir, '*.jpg')) 
         self.samples = []
+        self.class_counts = torch.zeros(num_classes)  # Track class frequencies
 
         for image_file in self.image_files:
             image_path = image_file
@@ -134,7 +138,21 @@ class YOLODataset(Dataset):
                             class_id, x_center, y_center, width, height = map(float, parts)
                             labels[int(class_id)] = 1  # Set presence of class
                             bboxes.append([x_center, y_center, width, height, int(class_id)])
+                            self.class_counts[int(class_id)] += 1  # Increment the class count
             self.samples.append((image_path, labels, bboxes))
+
+        # Calculate class weights (inverse of frequency)
+        self.class_weights = 1.0 / (self.class_counts + 1e-6)
+        self.sample_weights = []
+
+        for image_file in self.samples:
+            image_path, labels, bboxes = image_file
+            # Calculate the weight for each sample based on its class distribution
+            sample_weight = 0
+            for bbox in bboxes:
+                class_id = bbox[4]
+                sample_weight += self.class_weights[class_id]
+            self.sample_weights.append(sample_weight)
 
         # Define transformations for YOLO dataset
         if split == 'train':
@@ -144,7 +162,7 @@ class YOLODataset(Dataset):
                 A.RandomBrightnessContrast(p=0.3),
                 A.GaussianBlur(p=0.1),
                 A.RandomScale(scale_limit=0.1, p=0.3),
-                A.RandomCrop(width=224, height=224, p=0.3),
+                # A.RandomCrop(width=224, height=224, p=0.3),
                 A.Rotate(limit=15, p=0.3),
                 A.HueSaturationValue(p=0.3),
                 A.ElasticTransform(p=0.2),
@@ -179,7 +197,7 @@ class YOLODataset(Dataset):
         bbox_list = transformed['bboxes']
         class_labels = transformed['class_labels']
 
-        # Convert bounding boxes to proper format for visualization
+        # Convert bounding boxes to proper format for visualization of augmented images
         bbox_list_converted = []
         for bbox, class_label in zip(bbox_list, class_labels):
             x_center, y_center, width, height = bbox
@@ -190,3 +208,9 @@ class YOLODataset(Dataset):
             bbox_list_converted.append([xmin, ymin, xmax, ymax, class_label])
 
         return image, labels, bbox_list_converted
+
+    def get_sampler(self):
+        """
+        Return a sampler that can be used to sample the dataset with balanced class representation
+        """
+        return WeightedRandomSampler(self.sample_weights, num_samples=len(self.sample_weights), replacement=True)
