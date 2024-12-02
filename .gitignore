@@ -3,3 +3,4 @@ runs/
 *.pt
 datasets*
 outputs*
+*.pth

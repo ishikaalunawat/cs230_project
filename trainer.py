@@ -17,11 +17,25 @@ class Trainer:
 
     @staticmethod
     def calculate_psnr(output, target, max_pixel_value=1.0):
-        mse = torch.mean((output - target) ** 2)
-        if mse == 0:  # div 0
-            return float("inf")
+        # Ensure the inputs are on CPU and convert to float
+        output = output.detach().cpu()
+        target = target.detach().cpu()
+        
+        # Calculate MSE across all dimensions except batch
+        mse = torch.mean((output - target) ** 2, dim=[1,2,3])
+        
+        # Handle zero MSE case
+        zero_mask = (mse == 0)
+        mse[zero_mask] = torch.finfo(torch.float32).eps  # Small epsilon instead of 0
+        
+        # Calculate PSNR
         psnr = 20 * torch.log10(max_pixel_value / torch.sqrt(mse))
-        return psnr.item()
+        
+        # Set infinity for zero MSE cases
+        psnr[zero_mask] = float('inf')
+        
+        # Return mean PSNR across batch
+        return psnr.mean().item()
 
     def train_epoch(self, epoch):
         self.model.train()

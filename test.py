@@ -5,8 +5,8 @@ import numpy as np
 from torch.utils.data import DataLoader, Subset
 from torchvision import transforms
 from datasets import AquariumDataset
-# from models import DenoiserUNet
-from models_test import DnCNN
+from models import DenoiserUNet
+from models_test import DnCNN, MotionAwareDenoiser
 
 # configs
 data_dir = "datasets_noisy/aquarium-data-cots/aquarium_pretrain"
@@ -28,13 +28,14 @@ test_dataset = AquariumDataset(
 )
 
 # Subset of 5 samples for visualization
-test_subset = Subset(test_dataset, range(35))
+test_subset = Subset(test_dataset, range(20))
 # print(len(test_dataset))
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+test_loader = DataLoader(test_subset, batch_size=batch_size, shuffle=False)
 
 # Load the pre-trained model
 # model = DenoiserUNet().to(device)
-model = DnCNN(depth=17, in_channels=3, out_channels=3, num_features=64).to(device)
+# model = DnCNN(depth=17, in_channels=3, out_channels=3, num_features=64).to(device)
+model = MotionAwareDenoiser(in_channels=3, out_channels=3, num_features=64, num_blocks=8).to(device)
 model.load_state_dict(torch.load(model_path, weights_only=True))
 model.eval()
 

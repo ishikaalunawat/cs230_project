@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from datasets import AquariumDataset
 from models import DenoiserUNet
-from models_test import DnCNN
+from models_test import MotionAwareDenoiser
 from losses import CombinedLoss
 from trainer import Trainer
 
@@ -12,8 +12,8 @@ from trainer import Trainer
 data_dir = "datasets_noisy/aquarium-data-cots/aquarium_pretrain"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batch_size = 16
-learning_rate = 1e-4
-epochs = 10
+learning_rate = 5e-4
+epochs = 30
 
 # data transforms
 transform = transforms.Compose([
@@ -47,9 +47,10 @@ dataloaders = {
 }
 
 # init model, loss, optimizer
-model = DenoiserUNet().to(device)
+# model = DenoiserUNet().to(device)
+model = MotionAwareDenoiser(in_channels=3, out_channels=3, num_features=64, num_blocks=8)
 loss_fn = CombinedLoss(perceptual_weight=0.1, ssim_weight=0.1)
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=2e-5)
 
 # trainer
 trainer = Trainer(model, dataloaders, optimizer, loss_fn, device, logdir="runs")
