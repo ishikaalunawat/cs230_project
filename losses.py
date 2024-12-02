@@ -3,6 +3,25 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import vgg16
 
+def edge_preservation_loss(pred, target):
+    """
+    Compute edge preservation loss using gradient differences.
+
+    Args:
+        pred (torch.Tensor): Predicted image, shape (N, C, H, W).
+        target (torch.Tensor): Ground truth image, shape (N, C, H, W).
+
+    Returns:
+        torch.Tensor: Edge preservation loss.
+    """
+    pred_dx = pred[:, :, 1:, :] - pred[:, :, :-1, :]  # Gradient along height
+    pred_dy = pred[:, :, :, 1:] - pred[:, :, :, :-1]  # Gradient along width
+    target_dx = target[:, :, 1:, :] - target[:, :, :-1, :]  # Gradient along height
+    target_dy = target[:, :, :, 1:] - target[:, :, :, :-1]  # Gradient along width
+
+    loss = torch.mean((pred_dx - target_dx) ** 2 + (pred_dy - target_dy) ** 2)
+    return loss
+
 class SSIMLoss(nn.Module):
     """
     Structural Similarity Index (SSIM) Loss.
@@ -62,6 +81,7 @@ class SSIMLoss(nn.Module):
         else:
             return ssim_map
 
+
 class CombinedLoss(nn.Module):
     """
     Combined Loss: Pixel-wise MSE + Perceptual Loss + SSIM Loss.
@@ -107,3 +127,5 @@ class CombinedLoss(nn.Module):
             self.ssim_weight * ssim_loss
         )
         return total_loss
+
+

@@ -48,6 +48,7 @@ dataloaders = {
 # Model, loss, optimizer
 model = DenoiserUNet().to(device)
 # model = DnCNN(depth=17, in_channels=3, out_channels=3, num_features=64).to(device)
+# loss_fn = CombinedLoss(perceptual_weight=0.1, ssim_weight=0.1)
 loss_fn = CombinedLoss(perceptual_weight=0.1, ssim_weight=0.1)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
