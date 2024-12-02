@@ -3,25 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import vgg16
 
-def edge_preservation_loss(pred, target):
-    """
-    Compute edge preservation loss using gradient differences.
-
-    Args:
-        pred (torch.Tensor): Predicted image, shape (N, C, H, W).
-        target (torch.Tensor): Ground truth image, shape (N, C, H, W).
-
-    Returns:
-        torch.Tensor: Edge preservation loss.
-    """
-    pred_dx = pred[:, :, 1:, :] - pred[:, :, :-1, :]  # Gradient along height
-    pred_dy = pred[:, :, :, 1:] - pred[:, :, :, :-1]  # Gradient along width
-    target_dx = target[:, :, 1:, :] - target[:, :, :-1, :]  # Gradient along height
-    target_dy = target[:, :, :, 1:] - target[:, :, :, :-1]  # Gradient along width
-
-    loss = torch.mean((pred_dx - target_dx) ** 2 + (pred_dy - target_dy) ** 2)
-    return loss
-
 class SSIMLoss(nn.Module):
     """
     Structural Similarity Index (SSIM) Loss.
@@ -32,21 +13,10 @@ class SSIMLoss(nn.Module):
         self.reduction = reduction
 
     def forward(self, pred, target):
-        """
-        Args:
-            pred (torch.Tensor): Predicted image, shape (N, C, H, W).
-            target (torch.Tensor): Ground truth image, shape (N, C, H, W).
-
-        Returns:
-            torch.Tensor: SSIM loss value.
-        """
         return 1 - self.ssim(pred, target)
 
     @staticmethod
     def gaussian_window(window_size, sigma, channels):
-        """
-        Creates a 2D Gaussian kernel for the given window size.
-        """
         coords = torch.arange(window_size, dtype=torch.float32) - window_size // 2
         gaussian = torch.exp(-(coords ** 2) / (2 * sigma ** 2))
         kernel_1d = gaussian / gaussian.sum()
@@ -83,9 +53,6 @@ class SSIMLoss(nn.Module):
 
 
 class CombinedLoss(nn.Module):
-    """
-    Combined Loss: Pixel-wise MSE + Perceptual Loss + SSIM Loss.
-    """
     def __init__(self, perceptual_weight=0.1, ssim_weight=0.1):
         super(CombinedLoss, self).__init__()
         self.mse_loss = nn.MSELoss()
@@ -93,34 +60,27 @@ class CombinedLoss(nn.Module):
         self.perceptual_weight = perceptual_weight
         self.ssim_weight = ssim_weight
 
-        # Load a pre-trained VGG16 model for perceptual loss
-        vgg = vgg16(pretrained=True).features[:16]  # Use first few layers
+        vgg = vgg16(pretrained=True).features[:16]  # use first few layers
         for param in vgg.parameters():
             param.requires_grad = False
         self.vgg = vgg.eval()
 
     def compute_perceptual_loss(self, pred, target):
-        """
-        Computes perceptual loss using VGG features.
-        """
         pred_features = self.vgg(pred)
         target_features = self.vgg(target)
         return F.mse_loss(pred_features, target_features)
 
     def forward(self, clean_pred, clean_target):
-        """
-        Combined loss calculation.
-        """
-        # Pixel-wise loss
+        # pixel-wise loss
         pixel_loss = self.mse_loss(clean_pred, clean_target)
 
-        # Perceptual loss
+        # perceptual loss
         perceptual_loss = self.compute_perceptual_loss(clean_pred, clean_target)
 
         # SSIM loss
         ssim_loss = self.ssim_loss(clean_pred, clean_target)
 
-        # Combined loss
+        # combined
         total_loss = (
             pixel_loss +
             self.perceptual_weight * perceptual_loss +

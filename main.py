@@ -8,19 +8,20 @@ from models_test import DnCNN
 from losses import CombinedLoss
 from trainer import Trainer
 
-# Configuration
+# configs
 data_dir = "datasets_noisy/aquarium-data-cots/aquarium_pretrain"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batch_size = 16
 learning_rate = 1e-4
 epochs = 10
 
-# Data preparation
+# data transforms
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.ToTensor()
 ])
 
+# dataloaders
 dataloaders = {
     "train": DataLoader(
         AquariumDataset(
@@ -36,36 +37,34 @@ dataloaders = {
             transform=transform
         ), batch_size=batch_size, shuffle=False
     ),
-    "test": DataLoader(  # Added test DataLoader for visualization
+    "test": DataLoader( 
         AquariumDataset(
             os.path.join(data_dir, "test/images"),
             os.path.join(data_dir, "test/noisy_images"),
             transform=transform
-        ), batch_size=5, shuffle=False  # Batch size is 5 for visualization
+        ), batch_size=5, shuffle=False  # 5 for viz
     )
 }
 
-# Model, loss, optimizer
+# init model, loss, optimizer
 model = DenoiserUNet().to(device)
-# model = DnCNN(depth=17, in_channels=3, out_channels=3, num_features=64).to(device)
-# loss_fn = CombinedLoss(perceptual_weight=0.1, ssim_weight=0.1)
 loss_fn = CombinedLoss(perceptual_weight=0.1, ssim_weight=0.1)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-# Trainer
+# trainer
 trainer = Trainer(model, dataloaders, optimizer, loss_fn, device, logdir="runs")
 
-# Training loop
+# training loop
 for epoch in range(epochs):
     train_loss, train_psnr = trainer.train_epoch(epoch)
     val_loss, val_psnr = trainer.validate(epoch)
     print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Train PSNR: {train_psnr:.2f}, Val Loss: {val_loss:.4f}, Val PSNR: {val_psnr:.2f}")
 
-# Save model
+# save model
 torch.save(model.state_dict(), "outputs/denoiser_model.pth")
 
-# Visualize test outputs
+# visualize test outputs
 trainer.visualize_test_outputs()
 
-# Close TensorBoard writer
+# close tensorboard
 trainer.close()

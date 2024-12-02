@@ -12,23 +12,13 @@ class Trainer:
         self.optimizer = optimizer
         self.loss_fn = loss_fn.to(device)
         self.device = device
-        self.writer = SummaryWriter(log_dir=logdir)  # Initialize TensorBoard writer
+        # for tensorboard
+        self.writer = SummaryWriter(log_dir=logdir)
 
     @staticmethod
     def calculate_psnr(output, target, max_pixel_value=1.0):
-        """
-        Calculate PSNR between two images.
-
-        Args:
-            output (torch.Tensor): Model output (predicted image), shape (N, C, H, W).
-            target (torch.Tensor): Ground truth image, shape (N, C, H, W).
-            max_pixel_value (float): Maximum possible pixel value (default: 1.0 for normalized images).
-
-        Returns:
-            float: PSNR value.
-        """
         mse = torch.mean((output - target) ** 2)
-        if mse == 0:  # Avoid division by zero
+        if mse == 0:  # div 0
             return float("inf")
         psnr = 20 * torch.log10(max_pixel_value / torch.sqrt(mse))
         return psnr.item()
@@ -49,23 +39,23 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
 
-            # Compute PSNR
+            # PSNR
             psnr = self.calculate_psnr(outputs, clean_images)
             total_psnr += psnr
 
-            # Update running loss
+            # update running loss
             batch_loss = loss.item()
             running_loss += batch_loss
 
-            # Log batch loss and PSNR to TensorBoard
+            # log running loss and PSNR to TensorBoard
             global_step = epoch * len(self.dataloaders['train']) + batch_idx
             self.writer.add_scalar("Loss/Train_Batch", batch_loss, global_step)
             self.writer.add_scalar("PSNR/Train_Batch", psnr, global_step)
 
-            # Update the progress bar with batch loss and PSNR
+            # fro tqdm
             progress_bar.set_postfix(Batch_Loss=batch_loss, Batch_PSNR=psnr)
 
-        # Log epoch metrics
+        # log epoch
         epoch_loss = running_loss / len(self.dataloaders['train'])
         epoch_psnr = total_psnr / len(self.dataloaders['train'])
         self.writer.add_scalar("Loss/Train_Epoch", epoch_loss, epoch)
@@ -85,7 +75,7 @@ class Trainer:
                 outputs = self.model(noisy_images)
                 loss = self.loss_fn(outputs, clean_images)
 
-                # Compute PSNR
+                # PSNR
                 psnr = self.calculate_psnr(outputs, clean_images)
                 total_psnr += psnr
 
@@ -99,13 +89,10 @@ class Trainer:
         return epoch_loss, epoch_psnr
 
     def visualize_test_outputs(self):
-        """
-        Visualize 5 test images with their noisy input, model output, and ground truth.
-        """
         self.model.eval()
         test_loader = self.dataloaders.get("test")
         if not test_loader:
-            print("Test loader not provided. Skipping visualization.")
+            print("Test loader not loaded.")
             return
 
         test_iter = iter(test_loader)
@@ -117,17 +104,17 @@ class Trainer:
         with torch.no_grad():
             outputs = self.model(noisy_images)
 
-        # Convert tensors to numpy arrays for visualization
+        # convert to correct shape
         noisy_images = noisy_images.cpu().numpy().transpose(0, 2, 3, 1)
         outputs = outputs.cpu().numpy().transpose(0, 2, 3, 1)
         clean_images = clean_images.cpu().numpy().transpose(0, 2, 3, 1)
 
-        # Denormalize if necessary (assuming [0, 1] normalization)
+        # denormalize
         noisy_images = np.clip(noisy_images, 0, 1)
         outputs = np.clip(outputs, 0, 1)
         clean_images = np.clip(clean_images, 0, 1)
 
-        # Plot the results
+        # plot
         fig, axes = plt.subplots(5, 3, figsize=(12, 15))
         for i in range(5):
             axes[i, 0].imshow(noisy_images[i])
@@ -147,5 +134,5 @@ class Trainer:
         plt.show()
 
     def close(self):
-        """Close the TensorBoard writer."""
+        # to close tensorboard writer
         self.writer.close()
