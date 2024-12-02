@@ -1,4 +1,5 @@
 aquarium*
 runs/
 *.pt
-datasets/*
+datasets*
+outputs*
