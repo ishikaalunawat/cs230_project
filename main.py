@@ -2,7 +2,7 @@ import os
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from datasets import AquariumDataset
+from datasets_denoiser import AquariumDataset
 from models import DenoiserUNet
 from models_inspiration import MAD
 from losses import CombinedLoss
