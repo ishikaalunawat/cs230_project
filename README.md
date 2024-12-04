@@ -1,7 +1,7 @@
 # DeepSee: Marine Species Detection in Underwater Environments
 Code for CS 230 Project Autumn 2024.
 
-![](misc/giphy.gif)
+![](misc/finding-nemo-movies.gif)
 
 ## Files
 ### Outputs:
