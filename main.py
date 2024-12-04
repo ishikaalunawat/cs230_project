@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from datasets import AquariumDataset
 from models import DenoiserUNet
-from models_test import MotionAwareDenoiser
+from models_inspiration import MAD
 from losses import CombinedLoss
 from trainer import Trainer
 
@@ -48,12 +48,12 @@ dataloaders = {
 
 # init model, loss, optimizer
 # model = DenoiserUNet().to(device)
-model = MotionAwareDenoiser(in_channels=3, out_channels=3, num_features=64, num_blocks=8)
+model = MAD(in_channels=3, out_channels=3, num_features=64, num_blocks=8)
 loss_fn = CombinedLoss(perceptual_weight=0.1, ssim_weight=0.1)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=2e-5)
 
 # trainer
-trainer = Trainer(model, dataloaders, optimizer, loss_fn, device, logdir="runs")
+trainer = Trainer(model, dataloaders, optimizer, loss_fn, device, logdir="outputs_")
 
 # training loop
 for epoch in range(epochs):

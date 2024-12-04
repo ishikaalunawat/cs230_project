@@ -1,7 +1,8 @@
-aquarium*
 runs/
 *.pt
-datasets*
 outputs*
 !outputs_
 *.pth
+train*
+test*
+valid*

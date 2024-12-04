@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Attention(nn.Module):
+    '''
+    Spatial Attention Module: Inspired by the CBAM (Convolutional Block Attention Module) paper [8] in report
+    '''
     def __init__(self, in_channels):
         super(Attention, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, 1, kernel_size=7, padding=3, bias=False)
@@ -14,9 +17,9 @@ class Attention(nn.Module):
 
 
 class ScalingBlock(nn.Module):
-    """
-    Multi-scale block for capturing features at different resolutions.
-    """
+    '''
+    Multi-Scale Feature Extraction Block: Inspired by multi-scale IP techniques in DnCNN [7] from report.
+    '''
     def __init__(self, in_channels, out_channels):
         super(ScalingBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, stride=1)
@@ -32,21 +35,23 @@ class ScalingBlock(nn.Module):
         return F.relu(fused)
 
 
-class MotionAwareDenoiser(nn.Module):
-    """
-    Motion-Aware Denoising and Deblurring Network with Spatial Attention.
-    """
+class MAD(nn.Module):
+    '''
+    Motion-Aware Denoiser:
+    Combine multi-scale feature extraction [7] + spatial attention [8]
+    to address motion blur and speckle noise. The overall structure is influenced by
+    principles from DnCNN [2] and CBAM [1].
+    '''
     def __init__(self, in_channels=3, out_channels=3, num_features=64, num_blocks=8):
-        super(MotionAwareDenoiser, self).__init__()
+        super(MAD, self).__init__()
 
         # first feature extraction
         self.initial = nn.Conv2d(in_channels, num_features, kernel_size=3, padding=1, stride=1)
 
-        # scaling feature block
+        # scaling feature blocks
         self.blocks = nn.ModuleList([
             ScalingBlock(num_features, num_features) for _ in range(num_blocks)
         ])
-
         # spatial attention
         self.spatial_attention = Attention(num_features)
 
