@@ -6,3 +6,5 @@ outputs*
 train*
 test*
 valid*
+!*.ipynb
+!*.py
