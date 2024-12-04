@@ -1,6 +1,8 @@
 # DeepSee: Marine Species Detection in Underwater Environments
 Code for CS 230 Project Autumn 2024.
 
+![](misc/giphy.gif)
+
 ## Files
 ### Outputs:
 1. `outputs_/`: Outputs (train logging, visualizations, etc) from MAD denoiser
