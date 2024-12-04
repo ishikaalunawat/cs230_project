@@ -6,7 +6,7 @@ from datasets_denoiser import AquariumDataset
 from models import DenoiserUNet
 from models_inspiration import MAD
 from losses import CombinedLoss
-from trainer import Trainer
+from trainer_denoising import Trainer
 
 # configs
 data_dir = "datasets_noisy/aquarium-data-cots/aquarium_pretrain"

@@ -8,3 +8,5 @@ test*
 valid*
 !*.ipynb
 !*.py
+!outputs_/*
+outputs_/*.pth
