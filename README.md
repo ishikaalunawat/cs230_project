@@ -3,7 +3,7 @@ Code for CS 230 Project Autumn 2024.
 
 ![](misc/finding-nemo-movies.gif)
 
-## Files
+## File Organization
 ### Outputs:
 1. `outputs_/`: Outputs (train logging, visualizations, etc) from MAD denoiser
 ### Denoiser:
